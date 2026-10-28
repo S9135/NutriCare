@@ -1,0 +1,6 @@
+{
+  "name": "NutriCare AI",
+  "description": "Closed-loop digital therapeutic ecosystem for biometric monitoring, glycemic impact analysis, and therapeutic wellness coaching.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
