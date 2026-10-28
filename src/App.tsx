@@ -8,7 +8,8 @@ import {
   AlertCircle, 
   Trophy,
   Menu,
-  X
+  X,
+  ShieldCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Biometrics from './components/Biometrics';
@@ -16,6 +17,8 @@ import Dashboard from './components/Dashboard';
 import LabScanner from './components/LabScanner';
 import MealScanner from './components/MealScanner';
 import SOSOverlay from './components/SOSOverlay';
+import Auth from './components/Auth';
+import AdminConsole from './components/AdminConsole';
 
 export type UserProfile = {
   name: string;
@@ -38,7 +41,11 @@ export type AppState = {
 };
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'profile' | 'labs' | 'meals'>('dashboard');
+  const [session, setSession] = useState<{ email: string; role: 'user' | 'admin' } | null>(() => {
+    const saved = localStorage.getItem('nutricare_session');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'profile' | 'labs' | 'meals' | 'admin'>('dashboard');
   const [appState, setAppState] = useState<AppState>(() => {
     const saved = localStorage.getItem('nutricare_state');
     return saved ? JSON.parse(saved) : {
@@ -55,6 +62,24 @@ export default function App() {
     localStorage.setItem('nutricare_state', JSON.stringify(appState));
   }, [appState]);
 
+  useEffect(() => {
+    if (session) {
+      localStorage.setItem('nutricare_session', JSON.stringify(session));
+      if (session.role === 'admin') setActiveTab('admin');
+    } else {
+      localStorage.removeItem('nutricare_session');
+    }
+  }, [session]);
+
+  const handleLogin = (email: string, role: 'user' | 'admin') => {
+    setSession({ email, role });
+  };
+
+  const handleLogout = () => {
+    setSession(null);
+    setActiveTab('dashboard');
+  };
+
   const updateProfile = (profile: UserProfile) => {
     setAppState(prev => ({ ...prev, profile }));
     setActiveTab('dashboard');
@@ -64,12 +89,18 @@ export default function App() {
     setAppState(prev => ({ ...prev, dailyConsumed: prev.dailyConsumed + cals }));
   };
 
-  const navLinks = [
-    { id: 'dashboard', label: 'Dashboard', icon: PieChart },
-    { id: 'profile', label: 'Profile', icon: User },
-    { id: 'labs', label: 'Lab Reports', icon: FileText },
-    { id: 'meals', label: 'Meal Analysis', icon: Utensils },
-  ];
+  const navLinks = session?.role === 'admin' 
+    ? [{ id: 'admin', label: 'Admin Terminal', icon: ShieldCheck }]
+    : [
+        { id: 'dashboard', label: 'Dashboard', icon: PieChart },
+        { id: 'profile', label: 'Profile', icon: User },
+        { id: 'labs', label: 'Lab Reports', icon: FileText },
+        { id: 'meals', label: 'Meal Analysis', icon: Utensils },
+      ];
+
+  if (!session) {
+    return <Auth onLogin={handleLogin} />;
+  }
 
   return (
     <div className="min-h-screen bg-[#07090E] text-slate-200 font-sans selection:bg-cyan-500/30">
@@ -103,6 +134,13 @@ export default function App() {
 
             {/* Zone 3: SOS & Mobile Menu */}
             <div className="flex items-center gap-3 shrink-0">
+              <button
+                onClick={handleLogout}
+                className="hidden md:block p-2 text-slate-500 hover:text-white transition-colors"
+                title="Log Out"
+              >
+                <X className="w-5 h-5" />
+              </button>
               <button
                 onClick={() => setIsSOSActive(true)}
                 className="flex items-center gap-2 px-4 py-1.5 bg-rose-600/10 border border-rose-500/50 text-rose-400 rounded-md text-xs font-bold hover:bg-rose-600/20 transition-all uppercase tracking-wider"
@@ -148,6 +186,13 @@ export default function App() {
                   <span className="text-lg font-medium">{link.label}</span>
                 </button>
               ))}
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-4 p-4 rounded-xl border bg-rose-500/10 border-rose-500/50 text-rose-400"
+              >
+                <X className="w-6 h-6" />
+                <span className="text-lg font-medium">Log Out</span>
+              </button>
             </div>
           </motion.div>
         )}
@@ -155,7 +200,7 @@ export default function App() {
 
       {/* Main Content */}
       <main className="pt-24 pb-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {!appState.profile && activeTab !== 'profile' ? (
+        {!appState.profile && activeTab !== 'profile' && session.role !== 'admin' ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
             <User className="w-16 h-16 text-slate-700 mb-6" />
             <h2 className="text-2xl font-bold text-white mb-2">Welcome to NutriCare AI</h2>
@@ -180,6 +225,7 @@ export default function App() {
               {activeTab === 'profile' && <Biometrics profile={appState.profile} onSave={updateProfile} />}
               {activeTab === 'labs' && <LabScanner />}
               {activeTab === 'meals' && <MealScanner onMealLogged={addCalories} />}
+              {activeTab === 'admin' && <AdminConsole onLogout={handleLogout} />}
             </motion.div>
           </AnimatePresence>
         )}
